@@ -5,14 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
-	_ "strings"
+	_"strings"
 	"time"
-
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
+	_"github.com/mattn/go-sqlite3"
 )
 
 type CotacaoJson struct {
