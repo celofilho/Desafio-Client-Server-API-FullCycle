@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
-	_"strings"
+	_ "strings"
 	"time"
-	_"github.com/mattn/go-sqlite3"
+	"github.com/google/uuid"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type CotacaoJson struct {
@@ -54,7 +54,7 @@ func main() {
 func insertProduct(db *sql.DB, cotacao *Cotacao) error {
 
 	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*10)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
 	defer cancel()
 
 	stmt, err := db.Prepare("insert into cotacao(id, bid, date) values(?, ?, ?)")
@@ -62,14 +62,15 @@ func insertProduct(db *sql.DB, cotacao *Cotacao) error {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(cotacao.Id, cotacao.Bid, cotacao.Data)
 
-	//Timeout de 10ms para o insert
+    //Timeout de 10ms para o insert
 	select {
-	case <-time.After(5 * time.Millisecond):
+	case <-time.After(9 * time.Millisecond):
+		_, err = stmt.Exec(cotacao.Id, cotacao.Bid, cotacao.Data)	
 		log.Println("Request Inserted")
-	case <-ctx.Done():
+	case <-ctx.Done():	
 		log.Println("Process of Database timed out")
+		return nil
 	}
 
 	if err != nil {
@@ -105,6 +106,10 @@ func getCotacao() (*CotacaoJson, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://economia.awesomeapi.com.br/last/USD-BRL", nil)
 
 	resp, error := http.DefaultClient.Do(req)
+
+	if error != nil {
+		return nil, error
+	}
 
 	defer resp.Body.Close()
 
