@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 	"os"
+	"log"
 )
 
 type Cotacao struct {
@@ -21,6 +22,14 @@ func main() {
 	// Caso contrário o arquivo não será criado
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
+
+	select {
+	case <-time.After(50 * time.Millisecond):
+		log.Println("Request Success")
+	case <-ctx.Done():	
+		log.Println("Process timed out")
+	}	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://localhost:8080/cotacao", nil)
 	if err != nil {
 		panic(err)
@@ -48,6 +57,6 @@ func main() {
 	}
 	defer file.Close()
     _, err = file.WriteString(fmt.Sprintf("Dólar:%s","{"+cotacao.Usdbrl.Bid+"}"))
-	fmt.Println("Arquivo criado com sucesso!")
+	log.Println("Arquivo criado com sucesso!")
 
 }

@@ -54,28 +54,24 @@ func main() {
 func insertProduct(db *sql.DB, cotacao *Cotacao) error {
 
 	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	newCtx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
 	defer cancel()
 
-	stmt, err := db.Prepare("insert into cotacao(id, bid, date) values(?, ?, ?)")
+	stmt, err := db.PrepareContext(newCtx,"insert into cotacao(id, bid, date) values(?, ?, ?)")
 	if err != nil {
 		return err
 	}
+
+	 //Timeout de 10ms para o insert
+	select {
+		case <-time.After(8 * time.Millisecond):
+			_, err = stmt.ExecContext(newCtx, cotacao.Id, cotacao.Bid, cotacao.Data)
+			log.Println("Request Inserted")
+		case <-newCtx.Done():	
+			log.Println("Process of Database timed out")
+	}																										
 	defer stmt.Close()
 
-    //Timeout de 10ms para o insert
-	select {
-	case <-time.After(9 * time.Millisecond):
-		_, err = stmt.Exec(cotacao.Id, cotacao.Bid, cotacao.Data)	
-		log.Println("Request Inserted")
-	case <-ctx.Done():	
-		log.Println("Process of Database timed out")
-		return nil
-	}
-
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -99,19 +95,30 @@ func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
 func getCotacao() (*CotacaoJson, error) {
 
 	//Context
-
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
+	go func () {
+		select {
+		case <-time.After(50 * time.Millisecond):
+			log.Println("Request Success")
+		case <-ctx.Done():
+			log.Println("Process timed out")
+		}
+	}()
+
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://economia.awesomeapi.com.br/last/USD-BRL", nil)
-
+	if err != nil {
+		return nil, err
+	}
+	
 	resp, error := http.DefaultClient.Do(req)
-
+	
 	if error != nil {
 		return nil, error
 	}
-
 	defer resp.Body.Close()
+
 
 	body, error := io.ReadAll(resp.Body)
 	if error != nil {
@@ -129,15 +136,7 @@ func getCotacao() (*CotacaoJson, error) {
 	if error != nil {
 		return nil, error
 	}
-
-	//Timeout de 200ms para a requisição
-	select {
-	case <-time.After(100 * time.Millisecond):
-		log.Println("Request Success")
-	case <-ctx.Done():
-		log.Println("Process timed out")
-	}
-
+	
 	//Insert into database
 	db, err := sql.Open("sqlite3", "./goexpertDesafioClientServer.db")
 	if err != nil {
